@@ -1,0 +1,21 @@
+buildnoxify:
+  default: noxify
+  choices:
+    noxify:
+      short: noxify
+      settings:
+        GUI: OFF
+    # guify:
+    #   short: guify
+    #   settings:
+    #     GUI: ON
+
+buildType:
+  default: reldebug
+  choices:
+    reldebug:
+      short: reldebug
+      buildType: RelWithDebugInfo
+    debug:
+      short: debug
+      buildType: debug

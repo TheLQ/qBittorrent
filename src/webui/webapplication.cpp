@@ -370,7 +370,13 @@ void WebApplication::doProcessRequest()
             switch (result.data.userType())
             {
             case QMetaType::QJsonDocument:
+            {
+                QElapsedTimer stringTimer;
+                stringTimer.start();
                 print(result.data.toJsonDocument().toJson(QJsonDocument::Compact), Http::CONTENT_TYPE_JSON);
+                auto stringSecs = stringTimer.elapsed() / 1000;
+                LogMsg(tr("JSON stringify %1").arg(stringSecs), Log::WARNING);
+            }
                 break;
             case QMetaType::QByteArray:
                 {

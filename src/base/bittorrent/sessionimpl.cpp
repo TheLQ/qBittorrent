@@ -118,7 +118,7 @@ using namespace std::chrono_literals;
 using namespace BitTorrent;
 
 const Path CATEGORIES_FILE_NAME {u"categories.json"_s};
-const int MAX_PROCESSING_RESUMEDATA_COUNT = 50;
+const int MAX_PROCESSING_RESUMEDATA_COUNT = 500000;
 const std::chrono::seconds FREEDISKSPACE_CHECK_TIMEOUT = 30s;
 
 namespace

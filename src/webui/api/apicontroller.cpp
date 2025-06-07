@@ -34,8 +34,10 @@
 #include <QJsonDocument>
 #include <QList>
 #include <QMetaObject>
+#include <QElapsedTimer>
 
 #include "apierror.h"
+#include "base/logger.h"
 
 void APIResult::clear()
 {
@@ -97,7 +99,11 @@ void APIController::setResult(const QJsonArray &result)
 
 void APIController::setResult(const QJsonObject &result)
 {
+    QElapsedTimer jsonBuildTimer;
+    jsonBuildTimer.start();
     m_result.data = QJsonDocument(result);
+    auto calcSecs = jsonBuildTimer.elapsed() / 1000;
+    LogMsg(tr("JSON document %1").arg(calcSecs));
 }
 
 void APIController::setResult(const QByteArray &result, const QString &mimeType, const QString &filename)
