@@ -189,8 +189,12 @@ void BitTorrent::BencodeResumeDataStorage::loadQueue(const Path &queueFilename)
         return;
     }
 
+    QElapsedTimer calcTimer;
+    calcTimer.start();
+
+    QSet<TorrentID> registeredTorrents_set(m_registeredTorrents.cbegin(), m_registeredTorrents.cend());
+
     const QRegularExpression hashPattern {u"^([A-Fa-f0-9]{40})$"_s};
-    int start = 0;
     while (true)
     {
         const auto line = QString::fromLatin1(queueFile.readLine(lineMaxLength).trimmed());
@@ -201,14 +205,13 @@ void BitTorrent::BencodeResumeDataStorage::loadQueue(const Path &queueFilename)
         if (rxMatch.hasMatch())
         {
             const auto torrentID = BitTorrent::TorrentID::fromString(rxMatch.captured(1));
-            const int pos = m_registeredTorrents.indexOf(torrentID, start);
-            if (pos != -1)
-            {
-                std::swap(m_registeredTorrents[start], m_registeredTorrents[pos]);
-                ++start;
-            }
+            registeredTorrents_set.insert(torrentID);
         }
     }
+    m_registeredTorrents = registeredTorrents_set.values();
+    auto calcSecs = calcTimer.elapsed() / 1000;
+
+    LogMsg(tr("QueueFile load time %1").arg(calcSecs), Log::WARNING);
 }
 
 BitTorrent::LoadResumeDataResult BitTorrent::BencodeResumeDataStorage::loadTorrentResumeData(const QByteArray &data, const QByteArray &metadata) const
