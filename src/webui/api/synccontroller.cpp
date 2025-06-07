@@ -44,6 +44,7 @@
 #include "base/bittorrent/torrentinfo.h"
 #include "base/bittorrent/trackerentrystatus.h"
 #include "base/global.h"
+#include "base/logger.h"
 #include "base/net/geoipmanager.h"
 #include "base/preferences.h"
 #include "base/utils/string.h"
@@ -373,6 +374,8 @@ namespace
 
     QJsonObject generateSyncData(int acceptedResponseId, const QVariantMap &data, QVariantMap &lastAcceptedData, QVariantMap &lastData)
     {
+        QElapsedTimer calcTimer;
+        calcTimer.start();
         QVariantMap syncData;
         bool fullUpdate = true;
         const int lastResponseId = (acceptedResponseId > 0) ? lastData[KEY_RESPONSE_ID].toInt() : 0;
@@ -404,7 +407,16 @@ namespace
         lastData[KEY_RESPONSE_ID] = responseId;
         syncData[KEY_RESPONSE_ID] = responseId;
 
-        return QJsonObject::fromVariantMap(syncData);
+        auto calcSecs = calcTimer.elapsed() / 1000;
+
+        QElapsedTimer jsonTimer;
+        jsonTimer.start();
+        QJsonObject result = QJsonObject::fromVariantMap(syncData);
+        auto jsonSecs = jsonTimer.elapsed() / 1000;
+
+        LogMsg(QObject::tr("Maindata timer generate %1 json %2").arg(calcSecs).arg(jsonSecs), Log::INFO);
+
+        return result;
     }
 
     void addAnnounceStats(QVariantMap &serializedTorrent, const BitTorrent::Torrent *torrent)
