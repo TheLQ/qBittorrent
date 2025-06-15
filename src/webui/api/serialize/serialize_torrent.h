@@ -106,3 +106,4 @@ inline const QString KEY_TORRENT_CREATED_BY = u"created_by"_s;
 inline const QString KEY_TORRENT_CREATION_DATE = u"creation_date"_s;
 
 QVariantMap serialize(const BitTorrent::Torrent &torrent, const QList<QString> &filter);
+QByteArray serialize_binary(const BitTorrent::Torrent &torrent, const QList<QString> &filter);

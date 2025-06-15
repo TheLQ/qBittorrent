@@ -79,6 +79,11 @@ public:
         return Digest32(QSharedDataPointer<Data>(new Data(digestString)));
     }
 
+    QByteArray asByteArray() const
+    {
+        return m_dataPtr->asByteArray();
+    }
+
 private:
     class Data;
 
@@ -123,11 +128,16 @@ public:
     {
         if (m_hashString.isEmpty() && isValid())
         {
-            const QByteArray raw = QByteArray::fromRawData(m_nativeDigest.data(), length());
+            const QByteArray raw = asByteArray();
             m_hashString = QString::fromLatin1(raw.toHex());
         }
 
         return m_hashString;
+    }
+
+    QByteArray asByteArray() const
+    {
+        return QByteArray::fromRawData(m_nativeDigest.data(), length());
     }
 
 private:

@@ -85,6 +85,30 @@ namespace
             return u"unknown"_s;
         }
     }
+
+    // Convert numbers to native bytes.
+    // Everything is C-style, little endian nowadays.
+    template <typename V>
+    void doAppend(QByteArray &output, const V value) {
+        static_assert(std::is_arithmetic<V>::value, "Unsupported serialize type");
+        union ByteMapper {
+            V value;
+            char raw[sizeof(V)];
+            ByteMapper(V value) : value(value) {}
+        };
+        ByteMapper convert(value);
+        output.append(QByteArray::fromRawData(convert.raw, sizeof(V)));
+    }
+
+    void doAppend(QByteArray &output, const QString value) {
+        doAppend(output, value.length());
+        output.append(value.toUtf8());
+    }
+
+    void doAppend(QByteArray &output, const QByteArray value) {
+        doAppend(output, value.length());
+        output.append(value);
+    }
 }
 
 QVariantMap serialize(const BitTorrent::Torrent &torrent, const QList<QString> &fields)
@@ -183,4 +207,104 @@ QVariantMap serialize(const BitTorrent::Torrent &torrent, const QList<QString> &
     INSERT_M(KEY_TORRENT_REANNOUNCE, torrent.nextAnnounce());
     INSERT_M(KEY_TORRENT_COMMENT, torrent.comment())
     return result;
+}
+
+QByteArray serialize_binary(const BitTorrent::Torrent &torrent, const QList<QString> &filter)
+{
+    // todo: re-use lambdas
+    const bool hasMetadata = torrent.hasMetadata();
+    const auto adjustQueuePosition = [](const int position) -> int
+    {
+        return (position < 0) ? 0 : (position + 1);
+    };
+
+    const auto adjustRatio = [](const qreal ratio) -> qreal
+    {
+        return (ratio >= BitTorrent::Torrent::MAX_RATIO) ? -1 : ratio;
+    };
+
+    const auto getLastActivityTime = [&torrent]() -> qlonglong
+    {
+        const qlonglong timeSinceActivity = torrent.timeSinceActivity();
+        return (timeSinceActivity < 0)
+            ? Utils::DateTime::toSecsSinceEpoch(torrent.addedTime())
+            : (QDateTime::currentSecsSinceEpoch() - timeSinceActivity);
+    };
+
+    QByteArray output;
+
+    #define INSERT_B(key, value) if (filter.isEmpty() || filter.contains(key)) { doAppend(output, value); }
+
+    INSERT_B(KEY_TORRENT_ID, torrent.id().asByteArray());
+    INSERT_B(KEY_TORRENT_INFOHASHV1, torrent.infoHash().v1().asByteArray());
+    INSERT_B(KEY_TORRENT_INFOHASHV2, torrent.infoHash().v2().asByteArray());
+    INSERT_B(KEY_TORRENT_NAME, torrent.name());
+
+    INSERT_B(KEY_TORRENT_HAS_METADATA, hasMetadata);
+    INSERT_B(KEY_TORRENT_CREATED_BY, torrent.creator());
+    INSERT_B(KEY_TORRENT_CREATION_DATE, Utils::DateTime::toSecsSinceEpoch(torrent.creationDate()));
+    // INSERT_B(KEY_TORRENT_PRIVATE, (hasMetadata ? torrent.isPrivate() : QVariant()));
+    INSERT_B(KEY_TORRENT_PRIVATE, torrent.isPrivate());
+    INSERT_B(KEY_TORRENT_TOTAL_SIZE, torrent.totalSize());
+    INSERT_B(KEY_TORRENT_PIECES_NUM, torrent.piecesCount());
+    INSERT_B(KEY_TORRENT_PIECE_SIZE, torrent.pieceLength());
+
+    INSERT_B(KEY_TORRENT_MAGNET_URI, torrent.createMagnetURI());
+    INSERT_B(KEY_TORRENT_SIZE, torrent.wantedSize());
+    INSERT_B(KEY_TORRENT_PROGRESS, torrent.progress());
+    INSERT_B(KEY_TORRENT_TOTAL_WASTED, torrent.wastedSize());
+    INSERT_B(KEY_TORRENT_PIECES_HAVE, torrent.piecesHave());
+    INSERT_B(KEY_TORRENT_DLSPEED, torrent.downloadPayloadRate());
+    INSERT_B(KEY_TORRENT_UPSPEED, torrent.uploadPayloadRate());
+    INSERT_B(KEY_TORRENT_QUEUE_POSITION, adjustQueuePosition(torrent.queuePosition()));
+    INSERT_B(KEY_TORRENT_SEEDS, torrent.seedsCount());
+    INSERT_B(KEY_TORRENT_NUM_COMPLETE, torrent.totalSeedsCount());
+    INSERT_B(KEY_TORRENT_LEECHS, torrent.leechsCount());
+    INSERT_B(KEY_TORRENT_NUM_INCOMPLETE, torrent.totalLeechersCount());
+
+    INSERT_B(KEY_TORRENT_STATE, torrentStateToString(torrent.state()));
+    INSERT_B(KEY_TORRENT_ETA, torrent.eta());
+    INSERT_B(KEY_TORRENT_SEQUENTIAL_DOWNLOAD, torrent.isSequentialDownload());
+    INSERT_B(KEY_TORRENT_FIRST_LAST_PIECE_PRIO, torrent.hasFirstLastPiecePriority());
+
+    INSERT_B(KEY_TORRENT_CATEGORY, torrent.category());
+    INSERT_B(KEY_TORRENT_TAGS, Utils::String::joinIntoString(torrent.tags(), u", "_s));
+    INSERT_B(KEY_TORRENT_SUPER_SEEDING, torrent.superSeeding());
+    INSERT_B(KEY_TORRENT_FORCE_START, torrent.isForced());
+    INSERT_B(KEY_TORRENT_SAVE_PATH, torrent.savePath().toString());
+    INSERT_B(KEY_TORRENT_DOWNLOAD_PATH, torrent.downloadPath().toString());
+    INSERT_B(KEY_TORRENT_CONTENT_PATH, torrent.contentPath().toString());
+    INSERT_B(KEY_TORRENT_ROOT_PATH, torrent.rootPath().toString());
+    INSERT_B(KEY_TORRENT_ADDED_ON, Utils::DateTime::toSecsSinceEpoch(torrent.addedTime()));
+    INSERT_B(KEY_TORRENT_COMPLETION_ON, Utils::DateTime::toSecsSinceEpoch(torrent.completedTime()));
+    INSERT_B(KEY_TORRENT_TRACKER, torrent.currentTracker());
+    INSERT_B(KEY_TORRENT_TRACKERS_COUNT, torrent.trackers().size());
+    INSERT_B(KEY_TORRENT_DL_LIMIT, torrent.downloadLimit());
+    INSERT_B(KEY_TORRENT_UP_LIMIT, torrent.uploadLimit());
+    INSERT_B(KEY_TORRENT_AMOUNT_DOWNLOADED, torrent.totalDownload());
+    INSERT_B(KEY_TORRENT_AMOUNT_UPLOADED, torrent.totalUpload());
+    INSERT_B(KEY_TORRENT_AMOUNT_DOWNLOADED_SESSION, torrent.totalPayloadDownload());
+    INSERT_B(KEY_TORRENT_AMOUNT_UPLOADED_SESSION, torrent.totalPayloadUpload());
+    INSERT_B(KEY_TORRENT_AMOUNT_LEFT, torrent.remainingSize());
+    INSERT_B(KEY_TORRENT_AMOUNT_COMPLETED, torrent.completedSize());
+    INSERT_B(KEY_TORRENT_CONNECTIONS_COUNT, torrent.connectionsCount());
+    INSERT_B(KEY_TORRENT_CONNECTIONS_LIMIT, torrent.connectionsLimit());
+    INSERT_B(KEY_TORRENT_MAX_RATIO, torrent.maxRatio());
+    INSERT_B(KEY_TORRENT_MAX_SEEDING_TIME, torrent.maxSeedingTime());
+    INSERT_B(KEY_TORRENT_MAX_INACTIVE_SEEDING_TIME, torrent.maxInactiveSeedingTime());
+    INSERT_B(KEY_TORRENT_RATIO, adjustRatio(torrent.realRatio()));
+    INSERT_B(KEY_TORRENT_RATIO_LIMIT, torrent.ratioLimit());
+    INSERT_B(KEY_TORRENT_POPULARITY, torrent.popularity());
+    INSERT_B(KEY_TORRENT_SEEDING_TIME_LIMIT, torrent.seedingTimeLimit());
+    INSERT_B(KEY_TORRENT_INACTIVE_SEEDING_TIME_LIMIT, torrent.inactiveSeedingTimeLimit());
+    INSERT_B(KEY_TORRENT_LAST_SEEN_COMPLETE_TIME, Utils::DateTime::toSecsSinceEpoch(torrent.lastSeenComplete()));
+    INSERT_B(KEY_TORRENT_AUTO_TORRENT_MANAGEMENT, torrent.isAutoTMMEnabled());
+    INSERT_B(KEY_TORRENT_TIME_ACTIVE, torrent.activeTime());
+    INSERT_B(KEY_TORRENT_SEEDING_TIME, torrent.finishedTime());
+    INSERT_B(KEY_TORRENT_LAST_ACTIVITY_TIME, getLastActivityTime());
+    INSERT_B(KEY_TORRENT_AVAILABILITY, torrent.distributedCopies());
+    INSERT_B(KEY_TORRENT_REANNOUNCE, torrent.nextAnnounce());
+    INSERT_B(KEY_TORRENT_COMMENT, torrent.comment());
+
+    return output;
 }
