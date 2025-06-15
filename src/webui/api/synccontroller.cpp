@@ -44,6 +44,7 @@
 #include "base/bittorrent/torrentinfo.h"
 #include "base/bittorrent/trackerentrystatus.h"
 #include "base/global.h"
+#include "base/logger.h"
 #include "base/net/geoipmanager.h"
 #include "base/preferences.h"
 #include "base/utils/string.h"
@@ -373,6 +374,8 @@ namespace
 
     QJsonObject generateSyncData(int acceptedResponseId, const QVariantMap &data, QVariantMap &lastAcceptedData, QVariantMap &lastData)
     {
+        QElapsedTimer calcTimer;
+        calcTimer.start();
         QVariantMap syncData;
         bool fullUpdate = true;
         const int lastResponseId = (acceptedResponseId > 0) ? lastData[KEY_RESPONSE_ID].toInt() : 0;
@@ -404,7 +407,16 @@ namespace
         lastData[KEY_RESPONSE_ID] = responseId;
         syncData[KEY_RESPONSE_ID] = responseId;
 
-        return QJsonObject::fromVariantMap(syncData);
+        auto calcSecs = calcTimer.elapsed() / 1000;
+
+        QElapsedTimer jsonTimer;
+        jsonTimer.start();
+        QJsonObject result = QJsonObject::fromVariantMap(syncData);
+        auto jsonSecs = jsonTimer.elapsed() / 1000;
+
+        LogMsg(QObject::tr("PeerData timer generate %1 json %2").arg(calcSecs).arg(jsonSecs), Log::WARNING);
+
+        return result;
     }
 
     void addAnnounceStats(QVariantMap &serializedTorrent, const BitTorrent::Torrent *torrent)
@@ -621,6 +633,9 @@ void SyncController::makeMaindataSnapshot(const QList<QString> &torrentFields)
 
 QJsonObject SyncController::generateMaindataSyncData(const int id, const bool fullUpdate, const QList<QString> &torrentFields)
 {
+    QElapsedTimer calcTimer;
+    calcTimer.start();
+
     // if need to update existing sync data
     for (const QString &category : asConst(m_updatedCategories))
         m_maindataSyncBuf.removedCategories.removeOne(category);
@@ -777,6 +792,10 @@ QJsonObject SyncController::generateMaindataSyncData(const int id, const bool fu
         m_maindataSnapshot.serverState = serverState;
     }
 
+    auto calcSecs = calcTimer.elapsed() / 1000;
+    QElapsedTimer jsonBuildTimer;
+    jsonBuildTimer.start();
+
     QJsonObject syncData;
     syncData[KEY_RESPONSE_ID] = id;
     if (fullUpdate)
@@ -822,6 +841,10 @@ QJsonObject SyncController::generateMaindataSyncData(const int id, const bool fu
 
     if (!m_maindataSyncBuf.serverState.isEmpty())
         syncData[KEY_SERVER_STATE] = QJsonObject::fromVariantMap(m_maindataSyncBuf.serverState);
+
+    auto jsonBuildSecs = jsonBuildTimer.elapsed() / 1000;
+    
+    LogMsg(QObject::tr("Maindata timer generate %1 jsonbuild %2").arg(calcSecs).arg(jsonBuildSecs), Log::WARNING);
 
     return syncData;
 }
