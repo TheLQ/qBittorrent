@@ -412,7 +412,7 @@ void TorrentsController::infoAction()
         if (!torrentFilter.match(torrent))
             continue;
 
-        QVariantMap serializedTorrent = serialize(*torrent);
+        QVariantMap serializedTorrent = serialize(*torrent, QList<QString>());
 
         if (includeFiles && torrent->hasMetadata())
             serializedTorrent.insert(KEY_PROP_FILES, getFiles(torrent));
