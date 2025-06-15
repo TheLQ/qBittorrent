@@ -189,6 +189,9 @@ void BitTorrent::BencodeResumeDataStorage::loadQueue(const Path &queueFilename)
         return;
     }
 
+    QElapsedTimer calcTimer;
+    calcTimer.start();
+
     QHash<TorrentID, qsizetype> registeredTorrentsIndexes;
     registeredTorrentsIndexes.reserve(m_registeredTorrents.length());
     for (qsizetype i = 0; i < m_registeredTorrents.length(); ++i)
@@ -218,6 +221,9 @@ void BitTorrent::BencodeResumeDataStorage::loadQueue(const Path &queueFilename)
             }
         }
     }
+
+    auto calcMSec = calcTimer.elapsed();
+    LogMsg(tr("QueueFile load time %1 ms").arg(calcMSec), Log::WARNING);
 }
 
 BitTorrent::LoadResumeDataResult BitTorrent::BencodeResumeDataStorage::loadTorrentResumeData(const QByteArray &data, const QByteArray &metadata) const
