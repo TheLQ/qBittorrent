@@ -521,9 +521,10 @@ void SyncController::updateFreeDiskSpace(const qint64 freeDiskSpace)
 //   - rid (int): last response id
 void SyncController::maindataAction()
 {
+    const QStringList torrentFields = {params()[u"fields"_s].split(u'|', Qt::SkipEmptyParts)};
     if (m_maindataAcceptedID < 0)
     {
-        makeMaindataSnapshot();
+        makeMaindataSnapshot(torrentFields);
 
         const auto *btSession = BitTorrent::Session::instance();
         connect(btSession, &BitTorrent::Session::categoryAdded, this, &SyncController::onCategoryAdded);
@@ -567,11 +568,11 @@ void SyncController::maindataAction()
     }
 
     const int id = (m_maindataLastSentID % 1000000) + 1;  // cycle between 1 and 1000000
-    setResult(generateMaindataSyncData(id, fullUpdate));
+    setResult(generateMaindataSyncData(id, fullUpdate, torrentFields));
     m_maindataLastSentID = id;
 }
 
-void SyncController::makeMaindataSnapshot()
+void SyncController::makeMaindataSnapshot(const QList<QString> &torrentFields)
 {
     m_knownTrackers.clear();
     m_maindataAcceptedID = 0;
@@ -583,7 +584,7 @@ void SyncController::makeMaindataSnapshot()
     {
         const BitTorrent::TorrentID torrentID = torrent->id();
 
-        QVariantMap serializedTorrent = serialize(*torrent, QList<QString>());
+        QVariantMap serializedTorrent = serialize(*torrent, torrentFields);
         serializedTorrent.remove(KEY_TORRENT_ID);
         addAnnounceStats(serializedTorrent, torrent);
 
@@ -618,7 +619,7 @@ void SyncController::makeMaindataSnapshot()
     m_maindataSnapshot.serverState[KEY_SYNC_MAINDATA_USE_SUBCATEGORIES] = session->isSubcategoriesEnabled();
 }
 
-QJsonObject SyncController::generateMaindataSyncData(const int id, const bool fullUpdate)
+QJsonObject SyncController::generateMaindataSyncData(const int id, const bool fullUpdate, const QList<QString> &torrentFields)
 {
     // if need to update existing sync data
     for (const QString &category : asConst(m_updatedCategories))

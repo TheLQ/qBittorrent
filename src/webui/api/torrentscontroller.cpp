@@ -396,6 +396,7 @@ void TorrentsController::infoAction()
     const std::optional<bool> isPrivate = parseBool(params()[u"private"_s]);
     const bool includeFiles = parseBool(params()[u"includeFiles"_s]).value_or(false);
     const bool includeTrackers = parseBool(params()[u"includeTrackers"_s]).value_or(false);
+    const QStringList fields = {params()[u"fields"_s].split(u'|', Qt::SkipEmptyParts)};
 
     std::optional<TorrentIDSet> idSet;
     if (!hashes.isEmpty())
@@ -412,7 +413,7 @@ void TorrentsController::infoAction()
         if (!torrentFilter.match(torrent))
             continue;
 
-        QVariantMap serializedTorrent = serialize(*torrent, QList<QString>());
+        QVariantMap serializedTorrent = serialize(*torrent, fields);
 
         if (includeFiles && torrent->hasMetadata())
             serializedTorrent.insert(KEY_PROP_FILES, getFiles(torrent));

@@ -59,8 +59,8 @@ private slots:
     void torrentPeersAction();
 
 private:
-    void makeMaindataSnapshot();
-    QJsonObject generateMaindataSyncData(int id, bool fullUpdate);
+    void makeMaindataSnapshot(const QList<QString> &fields);
+    QJsonObject generateMaindataSyncData(int id, bool fullUpdate, const QList<QString> &fields);
 
     void onCategoryAdded(const QString &categoryName);
     void onCategoryRemoved(const QString &categoryName);
